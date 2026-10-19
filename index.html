@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Cubo 立方工坊 —— 面向 3D 打印的实体建模工具" />
+    <title>Cubo 立方工坊</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23ff9f43'/%3E%3Cpath d='M8 11l8-4 8 4v10l-8 4-8-4z' fill='none' stroke='%2315181d' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M8 11l8 4 8-4M16 15v10' fill='none' stroke='%2315181d' stroke-width='2' stroke-linejoin='round'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <!-- ═══ 顶栏 ═══ -->
+      <header class="titlebar">
+        <div class="brand">
+          <div class="brand-logo" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+              <path d="M4 8l8-4 8 4v8l-8 4-8-4z" stroke-linejoin="round" />
+              <path d="M4 8l8 4 8-4M12 12v8" stroke-linejoin="round" />
+            </svg>
+          </div>
+          <div class="brand-text">
+            <strong>Cubo</strong>
+            <span>立方工坊</span>
+          </div>
+        </div>
+
+        <nav class="menubar" id="menubar" aria-label="主菜单">
+          <button class="menu-btn" data-menu="file">文件</button>
+          <button class="menu-btn" data-menu="edit">编辑</button>
+          <button class="menu-btn" data-menu="view">视图</button>
+          <button class="menu-btn" data-menu="help">帮助</button>
+        </nav>
+
+        <div class="doc-title">
+          <input id="doc-name" class="doc-name-input" value="未命名模型" spellcheck="false" aria-label="模型名称" />
+          <span class="save-state" id="save-state">已就绪</span>
+        </div>
+
+        <div class="title-actions">
+          <button class="icon-btn" id="btn-undo" title="撤销 (Ctrl+Z)" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M9 7L4 12l5 5" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M4 12h9a6 6 0 0 1 0 12h-2" stroke-linecap="round" />
+            </svg>
+          </button>
+          <button class="icon-btn" id="btn-redo" title="重做 (Ctrl+Y)" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M15 7l5 5-5 5" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M20 12h-9a6 6 0 0 0 0 12h2" stroke-linecap="round" />
+            </svg>
+          </button>
+          <div class="title-sep"></div>
+          <button class="primary-btn" id="btn-export">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M12 4v11m0 0l-4-4m4 4l4-4" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M5 19h14" stroke-linecap="round" />
+            </svg>
+            导出 STL
+          </button>
+        </div>
+      </header>
+
+      <!-- ═══ 主体 ═══ -->
+      <div class="main">
+        <aside class="toolrail" id="toolrail" aria-label="工具栏"></aside>
+
+        <main class="viewport" id="viewport">
+          <div class="viewport-stage" id="viewport-stage"></div>
+
+          <!-- 左上：草图状态条 -->
+          <div class="sketch-banner" id="sketch-banner" hidden>
+            <span class="sketch-dot"></span>
+            <div class="sketch-text">
+              <strong id="sketch-plane-label">正在绘制草图</strong>
+              <span id="sketch-op-label">点击放置第一个点</span>
+            </div>
+            <button class="mini-btn" id="sketch-finish">完成</button>
+            <button class="mini-btn ghost" id="sketch-cancel">取消</button>
+          </div>
+
+          <!-- 右上：视图控制 -->
+          <div class="view-tools">
+            <div class="segmented" id="projection-toggle">
+              <button data-proj="persp" class="is-active">透视</button>
+              <button data-proj="ortho">正交</button>
+            </div>
+            <div class="segmented" id="view-presets">
+              <button data-view="iso" title="等轴测">等轴</button>
+              <button data-view="top" title="顶视图">顶</button>
+              <button data-view="front" title="前视图">前</button>
+              <button data-view="right" title="右视图">右</button>
+            </div>
+            <button class="mini-btn" id="btn-fit" title="适配窗口 (F)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- 左下：操作提示 -->
+          <div class="view-help" id="view-help">
+            <span><b>左键</b> 旋转</span>
+            <span><b>中键 / 右键</b> 平移</span>
+            <span><b>滚轮</b> 缩放</span>
+          </div>
+
+          <!-- 右下：坐标轴指示 -->
+          <div class="axis-widget" aria-hidden="true">
+            <span class="axis-x">X</span>
+            <span class="axis-y">Y</span>
+            <span class="axis-z">Z</span>
+            <i class="axis-line ax"></i>
+            <i class="axis-line ay"></i>
+            <i class="axis-line az"></i>
+          </div>
+
+          <!-- 空场景引导 -->
+          <div class="empty-state" id="empty-state">
+            <div class="empty-card">
+              <div class="empty-icon">
+                <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M8 16l16-8 16 8v18l-16 8-16-8z" stroke-linejoin="round" />
+                  <path d="M8 16l16 8 16-8M24 24v18" stroke-linejoin="round" />
+                </svg>
+              </div>
+              <h2>从一个方块开始</h2>
+              <p>用左侧的草图工具画出轮廓，或直接放一个基础形体。所有模型都是实体，随时能导出可打印的 STL。</p>
+              <div class="empty-actions" id="empty-actions">
+                <button data-quick="box">立方体</button>
+                <button data-quick="cylinder">圆柱</button>
+                <button data-quick="sphere">球体</button>
+                <button data-quick="demo">示例模型</button>
+                <button data-quick="import">导入 STL</button>
+              </div>
+              <div class="empty-hint">提示：先画矩形，再往上推拉，就是 SketchUp 里最经典的那一下。</div>
+            </div>
+          </div>
+
+          <!-- 尺寸输入浮窗 -->
+          <div class="dim-input" id="dim-input" hidden>
+            <span class="dim-label" id="dim-label">长度</span>
+            <input id="dim-field" type="text" inputmode="decimal" autocomplete="off" />
+            <span class="dim-unit">mm</span>
+          </div>
+        </main>
+
+        <aside class="inspector" id="inspector" aria-label="属性面板"></aside>
+      </div>
+
+      <!-- ═══ 状态栏 ═══ -->
+      <footer class="statusbar">
+        <div class="status-left">
+          <span class="status-light" id="status-light"></span>
+          <span id="status-msg">就绪</span>
+        </div>
+        <div class="status-hint" id="status-hint">选择一个工具开始</div>
+        <div class="status-right">
+          <span id="status-coords">X 0.0 · Y 0.0 · Z 0.0</span>
+          <span class="status-sep"></span>
+          <span id="status-snap">吸附 开</span>
+          <span class="status-sep"></span>
+          <span>毫米</span>
+        </div>
+      </footer>
+    </div>
+
+    <div id="toasts" class="toasts" aria-live="polite"></div>
+    <div id="menu-root" class="menu-root"></div>
+    <div id="modal-root" class="modal-root"></div>
+    <input type="file" id="file-input" accept=".stl,.json,.cubo" hidden />
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

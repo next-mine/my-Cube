@@ -1,0 +1,25 @@
+{
+  "name": "cubo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Cubo 立方工坊 —— 面向 3D 打印的实体建模工具",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5273",
+    "build": "vite build",
+    "build:single": "node scripts/build-single.mjs",
+    "embed:wasm": "node scripts/embed-wasm.mjs",
+    "preview": "vite preview --host 127.0.0.1 --port 5274",
+    "serve": "node server.mjs",
+    "test": "node tests/kernel.test.mjs",
+    "test:e2e": "node tests/e2e-smoke.mjs && node tests/e2e-flow.mjs && node tests/e2e-advanced.mjs && node tests/e2e-extra.mjs"
+  },
+  "dependencies": {
+    "manifold-3d": "3.5.4",
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.64.1",
+    "vite": "8.3.4"
+  }
+}
