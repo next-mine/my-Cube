@@ -31,7 +31,7 @@
   /* 尺寸 */
   --titlebar-h: 46px;
   --statusbar-h: 26px;
-  --rail-w: 62px;
+  --rail-w: 64px;
   --inspector-w: 302px;
   --radius: 8px;
   --radius-sm: 6px;
@@ -335,22 +335,38 @@ button {
 
 .tool-btn {
   position: relative;
-  width: 46px;
-  height: 38px;
-  display: grid;
-  place-items: center;
-  border-radius: var(--radius-sm);
+  width: 50px;
+  height: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border-radius: 7px;
   color: var(--text-dim);
   transition: background 0.14s, color 0.14s;
 }
 
 .tool-btn svg {
-  width: 20px;
-  height: 20px;
+  width: 17px;
+  height: 17px;
+  flex: none;
+}
+
+.tool-label {
+  font-size: 9.5px;
+  line-height: 1;
+  letter-spacing: 0.2px;
+  color: #8b97a7;
+  transition: color 0.14s;
 }
 
 .tool-btn:hover {
   background: var(--bg-hover);
+  color: var(--text);
+}
+
+.tool-btn:hover .tool-label {
   color: var(--text);
 }
 
@@ -360,46 +376,50 @@ button {
   box-shadow: inset 0 0 0 1px rgba(255, 159, 67, 0.35);
 }
 
+.tool-btn.is-active .tool-label {
+  color: var(--accent-strong);
+}
+
 .tool-btn.is-disabled {
   opacity: 0.32;
   cursor: default;
 }
 
-/* 工具名提示 */
-.tool-btn::after {
-  content: attr(data-tip);
-  position: absolute;
-  left: calc(100% + 10px);
-  top: 50%;
-  transform: translateY(-50%) translateX(-4px);
-  background: #0b0e12;
-  border: 1px solid var(--line);
-  color: var(--text);
-  font-size: 12px;
-  line-height: 1;
-  white-space: nowrap;
-  padding: 7px 9px;
-  border-radius: 6px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.12s, transform 0.12s;
+/* 悬停注释卡片 */
+.tooltip {
+  position: fixed;
+  z-index: 95;
+  width: 252px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: rgba(12, 15, 19, 0.97);
+  border: 1px solid #3a4350;
   box-shadow: var(--shadow);
-  z-index: 40;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(-5px);
+  transition: opacity 0.12s, transform 0.12s;
 }
 
-.tool-btn:hover::after {
+.tooltip.is-visible {
   opacity: 1;
-  transform: translateY(-50%) translateX(0);
+  transform: translateX(0);
 }
 
-.tool-btn .tool-key {
-  position: absolute;
-  right: 5px;
-  bottom: 3px;
-  font-size: 8px;
-  color: var(--text-faint);
-  font-family: var(--mono);
-  letter-spacing: 0;
+.tooltip .tt-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.tooltip .tt-desc {
+  margin-top: 6px;
+  font-size: 11.5px;
+  line-height: 1.65;
+  color: var(--text-dim);
 }
 
 /* ── 视口 ── */
@@ -1334,6 +1354,48 @@ button {
   font-family: var(--mono);
   font-size: 10.5px;
   color: var(--text-faint);
+}
+
+/* 应用内使用手册 */
+.manual h3 {
+  margin: 16px 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.manual h3:first-child {
+  margin-top: 0;
+}
+
+.manual p {
+  margin: 0 0 8px;
+}
+
+.manual ul {
+  margin: 4px 0 10px;
+  padding-left: 20px;
+}
+
+.manual li {
+  margin: 4px 0;
+}
+
+.manual code {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #12161c;
+  border: 1px solid #2a313c;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--accent-strong);
+}
+
+.check-line input[type='checkbox'] {
+  accent-color: var(--accent);
+  width: 14px;
+  height: 14px;
 }
 
 kbd {

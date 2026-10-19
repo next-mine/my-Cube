@@ -237,11 +237,17 @@ export function planeMatrix(plane) {
  * @param {number} [opts.twistDegrees=0] 扭转角，做螺旋造型时好玩。
  * @param {number} [opts.scaleTop=1] 顶面缩放，小于 1 会收成锥形。
  * @param {number} [opts.divisions=0] 中间插入的分段数（配合扭转才有意义）。
+ * @param {number} [opts.overshoot=0] 起止两端额外多伸出的长度（mm），贴合实体表面时用。
  * @retval {any} 已变换到世界坐标的 manifold 实体。
  *
  * @note 正负高度的处理：先一律按 |h| 拉伸（manifold 只接受正高度），
  *       负值时整体沿局部 -Z 平移 |h|，这样实体就落在 [h, 0] 之间，
  *       最后再乘平面矩阵。顺序不能反，不然会沿着世界 Z 平移而不是草图法线～
+ *
+ * @note overshoot 是给“画在实体表面上”的推拉准备的：草图平面原点来自射线求交，
+ *       会带 1e-14 级的浮点误差。切削体如果刚好比表面低一丁点，布尔会在孔底
+ *       留下一层零厚度的面，悬垂统计还会误报。两端各多伸 0.2 mm 就能干净地
+ *       穿透表面；合并时也能避免共面融合产生的烂面。
  */
 export function extrudeContours({
   contours,
@@ -250,6 +256,7 @@ export function extrudeContours({
   twistDegrees = 0,
   scaleTop = 1,
   divisions = 0,
+  overshoot = 0,
 }) {
   if (!Array.isArray(contours) || contours.length === 0) {
     throw new Error('草图轮廓是空的，先画一个闭合图形吧');
@@ -269,9 +276,14 @@ export function extrudeContours({
   // 半成品 Vec2（y 变成 0），顶面会塌成一条线、体积凭空少一半。文档虽说支持
   // number | Vec2，实际只有数组可靠，所以这里统一归一化成 [sx, sy]。
   const topScale = typeof scaleTop === 'number' ? [scaleTop, scaleTop] : scaleTop;
-  let solid = K().Manifold.extrude(cs, h, Math.max(0, divisions), twistDegrees, topScale, false);
+  const extra = Math.max(0, Number(overshoot) || 0);
+  let solid = K().Manifold.extrude(cs, h + extra, Math.max(0, divisions), twistDegrees, topScale, false);
   if (height < 0) {
-    solid = solid.translate([0, 0, -h]);
+    // [0, h+extra] 平移 h 后变成 [h, extra]，顶端多穿出表面 extra。
+    solid = solid.translate([0, 0, height]);
+  } else if (extra > 0) {
+    // 正向拉伸则往表面以下多埋 extra，合并时不会和表面共面。
+    solid = solid.translate([0, 0, -extra]);
   }
   return solid.transform(planeMatrix(plane));
 }

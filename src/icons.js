@@ -49,6 +49,10 @@ const paths = {
     '<path d="M4 7h16M9 7V4.8h6V7M6.5 7l1 13h9l1-13" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 11v5M14 11v5" stroke-linecap="round"/>',
   duplicate:
     '<rect x="8" y="8" width="12" height="12" rx="1.5"/><path d="M16 8V5.5A1.5 1.5 0 0 0 14.5 4H5.5A1.5 1.5 0 0 0 4 5.5v9A1.5 1.5 0 0 0 5.5 16H8" stroke-linecap="round"/>',
+  mirror:
+    '<path d="M12 3v18" stroke-dasharray="2 3"/><path d="M9 7L4 12l5 5z" stroke-linejoin="round"/><path d="M15 7l5 5-5 5z" stroke-linejoin="round"/>',
+  array:
+    '<rect x="3" y="8" width="5" height="8" rx="1"/><rect x="10" y="8" width="5" height="8" rx="1"/><rect x="17" y="8" width="4" height="8" rx="1"/>',
 
   // —— 视图与文件 ——
   fit: '<path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5" stroke-linecap="round" stroke-linejoin="round"/>',

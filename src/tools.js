@@ -448,6 +448,31 @@ export class ToolController {
       [0, 0],
     );
     this.extrude.centroid = planeToWorld(plane, centroid[0], centroid[1], 0);
+
+    // 画在实体表面上时，先量出「沿法线到背面」有多厚：
+    // 切到这么深就该贯穿了，继续拖也不会真的更深，还会和底面共面产生烂面，
+    // 所以干脆吸附到“刚好穿透 + 1.2 mm”，保证挖出来的是干净的贯穿孔。
+    if (hostId) {
+      const host = this.app.getSolid(hostId);
+      const bb = host?.stats()?.bbox;
+      if (bb) {
+        const n = new THREE.Vector3(...plane.normal);
+        const o = new THREE.Vector3(...plane.origin);
+        let min = Infinity;
+        let max = -Infinity;
+        for (const x of [bb.min[0], bb.max[0]]) {
+          for (const y of [bb.min[1], bb.max[1]]) {
+            for (const z of [bb.min[2], bb.max[2]]) {
+              const d = new THREE.Vector3(x, y, z).sub(o).dot(n);
+              min = Math.min(min, d);
+              max = Math.max(max, d);
+            }
+          }
+        }
+        this.extrude.hostDepth = { extent: max - min, inward: Math.max(0, -min) };
+      }
+    }
+
     this._updateGhost();
   }
 
@@ -483,9 +508,32 @@ export class ToolController {
     }
 
     // 取整到 0.1 mm，手抖不会让高度出现 12.384729 这种数字。
-    this.extrude.height = Math.round(this.extrude.height * 10) / 10;
+    let height = Math.round(this.extrude.height * 10) / 10;
+
+    const inward = this.extrude.hostDepth?.inward || 0;
+    let through = false;
+    if (inward > 0 && height < 0 && height <= -(inward - 0.8)) {
+      // 已经拖到底了：多给 1.2 mm 余量，把孔彻底打穿，避免孔底和实体底面共面。
+      height = -(Math.round((inward + 1.2) * 10) / 10);
+      through = true;
+    }
+
+    this.extrude.height = height;
+    this.extrude.through = through;
     this.app.preview = this.extrude;
-    this.app.setHint(`高度 ${this.extrude.height.toFixed(1)} mm · 点击确认 · 输入数字精确指定`);
+
+    if (inward > 0 && height < 0) {
+      const depth = Math.min(Math.abs(height), inward);
+      this.app.setHint(
+        through
+          ? `已切穿 ${inward.toFixed(1)} mm · 点击确认`
+          : `切除深度 ${depth.toFixed(1)} / ${inward.toFixed(1)} mm · 再往下拖可切穿，或按 T`,
+      );
+    } else if (height > 0) {
+      this.app.setHint(`凸起高度 ${height.toFixed(1)} mm · 点击确认 · 输入数字精确指定`);
+    } else {
+      this.app.setHint('上下移动鼠标设置高度，点击确认；输入数字可精确指定');
+    }
     this.app.notify();
   }
 
@@ -500,7 +548,13 @@ export class ToolController {
 
     let data;
     try {
-      const m = extrudeContours({ contours: [contour], plane, height });
+      const m = extrudeContours({
+        contours: [contour],
+        plane,
+        height,
+        // 幽灵体也要带同样的过伸量，预览和最终布尔结果才对得上。
+        overshoot: this.extrude.hostId ? 0.2 : 0,
+      });
       data = manifoldMeshData(m);
     } catch {
       this._clearGhost();
@@ -514,14 +568,17 @@ export class ToolController {
         new THREE.MeshStandardMaterial({
           color,
           transparent: true,
-          opacity: 0.32,
+          opacity: 0.3,
           depthWrite: false,
+          // 关键：切削预览经常在实体内部，开 depthTest 会被实体挡住，
+          // 看起来就像“推拉没反应”。关掉深度测试，幽灵体始终可见。
+          depthTest: false,
           side: THREE.DoubleSide,
           emissive: color,
-          emissiveIntensity: 0.25,
+          emissiveIntensity: 0.5,
         }),
       );
-      this._ghost.renderOrder = 3;
+      this._ghost.renderOrder = 12;
       this.previewGroup.add(this._ghost);
     }
     this._ghost.material.color.setHex(color);
@@ -543,6 +600,25 @@ export class ToolController {
     this.previewGroup.remove(this._ghost);
     this._ghost.material.dispose();
     this._ghost = null;
+  }
+
+  /**
+   * @brief 一键切穿：把当前切除深度设成「实体厚度 + 1.2 mm」并立即确认。
+   * @retval {void}
+   * @note 这是给“从上往下推、想把孔打穿”的场景准备的。
+   *       手动拖到厚度附近也会自动吸附到贯穿，这个按钮只是更省事。
+   */
+  cutThrough() {
+    if (this.mode !== 'extrude' || !this.extrude) return;
+    const inward = this.extrude.hostDepth?.inward || 0;
+    if (inward <= 0) {
+      this.app.toast('这个轮廓没有贴在实体表面上，没法切穿', 'warn');
+      return;
+    }
+    this.extrude.height = -(Math.round((inward + 1.2) * 10) / 10);
+    this.extrude.through = true;
+    this._updateGhost();
+    this._commitExtrude(false);
   }
 
   /**
@@ -675,9 +751,15 @@ export class ToolController {
       return false;
     }
 
+    // T：切除时一键贯穿
+    if ((key === 't' || key === 'T') && this.mode === 'extrude' && this.extrude?.hostDepth) {
+      e.preventDefault();
+      this.cutThrough();
+      return true;
+    }
+
     // 数字键：打开精确尺寸输入
-    if (/^[0-9.]$/.test(key) && !e.ctrlKey && !e.metaKey) {
-      if (this.app.dimension) return false;
+    if (/^[0-9.]$/.test(key) && !e.ctrlKey && !e.metaKey) {      if (this.app.dimension) return false;
       if (this.mode === 'extrude' && this.extrude) {
         e.preventDefault();
         const current = this.extrude.height || 10;

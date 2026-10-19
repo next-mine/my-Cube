@@ -94,6 +94,7 @@ export class Viewport {
     this._running = true;
     this._hovered = null;
     this._frame = 0;
+    this.xray = false;
 
     this._onResize = () => this.resize();
     window.addEventListener('resize', this._onResize);
@@ -487,11 +488,43 @@ export class Viewport {
   /** @brief 加一个实体到场景。 */
   addSolid(solid) {
     this.solidsGroup.add(solid.group);
+    if (this.xray) this._applyXrayTo(solid.group, true);
   }
 
   /** @brief 从场景移除一个实体。 */
   removeSolid(solid) {
     this.solidsGroup.remove(solid.group);
+  }
+
+  /**
+   * @brief 把某个实体设成半透明（X 光模式）。
+   * @param {THREE.Object3D} group 实体分组。
+   * @param {boolean} on 是否半透明。
+   * @retval {void}
+   */
+  _applyXrayTo(group, on) {
+    group.traverse((obj) => {
+      if (!obj.isMesh || !obj.material) return;
+      const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+      for (const m of mats) {
+        m.transparent = on;
+        m.opacity = on ? 0.28 : 1;
+        m.depthWrite = !on;
+        m.needsUpdate = true;
+      }
+    });
+  }
+
+  /**
+   * @brief 开关 X 光模式：所有实体半透明，方便看清内部的孔和切除结果。
+   * @param {boolean} on 是否开启。
+   * @retval {void}
+   */
+  setXray(on) {
+    this.xray = !!on;
+    for (const group of this.solidsGroup.children) {
+      this._applyXrayTo(group, this.xray);
+    }
   }
 
   /**

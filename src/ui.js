@@ -8,34 +8,109 @@ import { icon } from './icons.js';
 import { COLOR_SWATCHES } from './solid.js';
 import { MATERIALS } from './print.js';
 
-/** @brief 左侧工具轨的分组配置。 */
+/** @brief 左侧工具轨的分组配置（desc 会显示在悬停注释里）。 */
 const RAIL_GROUPS = [
-  [{ tool: 'select', icon: 'select', label: '选择', key: 'Q' }],
   [
-    { tool: 'line', icon: 'line', label: '直线', key: 'L' },
-    { tool: 'rect', icon: 'rect', label: '矩形', key: 'R' },
-    { tool: 'circle', icon: 'circle', label: '圆', key: 'C' },
-    { tool: 'polygon', icon: 'polygon', label: '多边形', key: 'G' },
-    { tool: 'arc', icon: 'arc', label: '圆弧', key: 'A' },
+    {
+      tool: 'select',
+      icon: 'select',
+      label: '选择',
+      key: 'Q',
+      desc: '点选实体，按住 Shift 可多选；拖动空白处旋转视图。',
+    },
   ],
   [
-    { tool: 'extrude', icon: 'extrude', label: '推拉', key: 'P' },
-    { tool: 'revolve', icon: 'revolve', label: '旋转体', key: 'O' },
+    {
+      tool: 'line',
+      icon: 'line',
+      label: '直线',
+      key: 'L',
+      desc: '连续点击画折线，点回起点或按 Enter 闭合轮廓。',
+    },
+    {
+      tool: 'rect',
+      icon: 'rect',
+      label: '矩形',
+      key: 'R',
+      desc: '点两个对角点画矩形，闭合后自动进入推拉。',
+    },
+    {
+      tool: 'circle',
+      icon: 'circle',
+      label: '圆',
+      key: 'C',
+      desc: '先点圆心，再点圆周确定半径；画在实体表面可以直接挖孔。',
+    },
+    {
+      tool: 'polygon',
+      icon: 'polygon',
+      label: '多边形',
+      key: 'G',
+      desc: '先点中心，再点外接圆；边数可在右侧「视图与网格」里改。',
+    },
+    {
+      tool: 'arc',
+      icon: 'arc',
+      label: '圆弧',
+      key: 'A',
+      desc: '依次点起点、弧上一点、终点，自动用弦闭合为弓形。',
+    },
   ],
-  [{ action: 'primitives', icon: 'primitives', label: '基础图元' }],
   [
-    { action: 'boolean', op: 'union', icon: 'union', label: '并集' },
-    { action: 'boolean', op: 'subtract', icon: 'subtract', label: '差集' },
-    { action: 'boolean', op: 'intersect', icon: 'intersect', label: '交集' },
+    {
+      tool: 'extrude',
+      icon: 'extrude',
+      label: '推拉',
+      key: 'P',
+      desc: '把闭合轮廓上下拖动成体。画在表面上时：往外拉是合并，往里推是挖孔。',
+    },
+    {
+      tool: 'revolve',
+      icon: 'revolve',
+      label: '旋转体',
+      key: 'O',
+      desc: '在前视平面画截面，闭合后绕 Z 轴旋转 360°，做轴套、法兰很顺手。',
+    },
   ],
   [
-    { tool: 'move', icon: 'move', label: '移动', key: '1' },
-    { tool: 'rotate', icon: 'rotate', label: '旋转', key: '2' },
-    { tool: 'scale', icon: 'scale', label: '缩放', key: '3' },
+    {
+      action: 'primitives',
+      icon: 'primitives',
+      label: '图元',
+      desc: '立方体、圆柱、球、圆锥、圆环、圆管、六棱柱。',
+    },
   ],
   [
-    { tool: 'measure', icon: 'measure', label: '测量', key: 'M' },
-    { action: 'fit', icon: 'fit', label: '适配视图', key: 'F' },
+    {
+      action: 'boolean',
+      op: 'union',
+      icon: 'union',
+      label: '并集',
+      desc: '把选中的多个实体合并成一个。',
+    },
+    {
+      action: 'boolean',
+      op: 'subtract',
+      icon: 'subtract',
+      label: '差集',
+      desc: '用最先选中的实体，减去其余选中的实体。',
+    },
+    {
+      action: 'boolean',
+      op: 'intersect',
+      icon: 'intersect',
+      label: '交集',
+      desc: '只保留选中实体之间重叠的部分。',
+    },
+  ],
+  [
+    { tool: 'move', icon: 'move', label: '移动', key: '1', desc: '拖动坐标轴箭头移动实体，也可以直接在右侧输入数值。' },
+    { tool: 'rotate', icon: 'rotate', label: '旋转', key: '2', desc: '拖动彩色圆环绕轴旋转实体，旋转中心是几何中心。' },
+    { tool: 'scale', icon: 'scale', label: '缩放', key: '3', desc: '拖动方块缩放实体，或在右侧改外形尺寸。' },
+  ],
+  [
+    { tool: 'measure', icon: 'measure', label: '测量', key: 'M', desc: '点两个位置量距离，结果显示在底部状态栏。' },
+    { action: 'fit', icon: 'fit', label: '适配', key: 'F', desc: '把所有实体框进视图。' },
   ],
 ];
 
@@ -81,12 +156,14 @@ export function initUI(app) {
     sketchBanner: document.getElementById('sketch-banner'),
     sketchPlaneLabel: document.getElementById('sketch-plane-label'),
     sketchOpLabel: document.getElementById('sketch-op-label'),
+    sketchThrough: document.getElementById('sketch-through'),
     dim: document.getElementById('dim-input'),
     dimField: document.getElementById('dim-field'),
     dimLabel: document.getElementById('dim-label'),
     menuRoot: document.getElementById('menu-root'),
     modalRoot: document.getElementById('modal-root'),
     toasts: document.getElementById('toasts'),
+    tooltip: document.getElementById('tooltip'),
     docName: document.getElementById('doc-name'),
     saveState: document.getElementById('save-state'),
     undoBtn: document.getElementById('btn-undo'),
@@ -98,6 +175,7 @@ export function initUI(app) {
   renderRail(ui);
   renderInspector(ui);
   bindRail(ui);
+  bindTooltips(ui);
   bindTopbar(ui);
   bindViewportControls(ui);
   bindSketchBanner(ui);
@@ -124,11 +202,9 @@ function renderRail(ui) {
           : item.action === 'boolean'
             ? `data-action="boolean" data-op="${item.op}"`
             : `data-action="${item.action}"`;
-        const key = item.key ? `<span class="tool-key">${item.key}</span>` : '';
-        const tip = item.key ? `${item.label} (${item.key})` : item.label;
         const active = item.tool && ui.app.tool === item.tool ? ' is-active' : '';
-        return `<button class="tool-btn${active}" ${attrs} data-tip="${tip}" aria-label="${item.label}">
-          ${icon(item.icon, 20)}${key}
+        return `<button class="tool-btn${active}" ${attrs} data-title="${item.label}" data-key="${item.key || ''}" data-desc="${item.desc || item.label}" aria-label="${item.label}">
+          ${icon(item.icon, 18)}<span class="tool-label">${item.label}</span>
         </button>`;
       })
       .join('');
@@ -178,6 +254,65 @@ function updateRailState(ui) {
       btn.title = selected < 2 ? '先选中至少两个实体' : '';
     }
   }
+}
+
+/** @brief 工具栏悬停注释：名称 + 快捷键 + 一句人话说明。 */
+function bindTooltips(ui) {
+  const tip = ui.tooltip;
+  let timer = null;
+  let current = null;
+
+  const hide = () => {
+    clearTimeout(timer);
+    timer = null;
+    current = null;
+    tip.classList.remove('is-visible');
+    tip.hidden = true;
+  };
+
+  const place = (btn) => {
+    const rect = btn.getBoundingClientRect();
+    const width = 252;
+    let left = rect.right + 12;
+    if (left + width > window.innerWidth - 8) left = Math.max(8, rect.left - width - 12);
+    const height = tip.offsetHeight || 90;
+    const top = Math.min(
+      Math.max(8, rect.top + rect.height / 2 - height / 2),
+      window.innerHeight - height - 8,
+    );
+    tip.style.left = `${left}px`;
+    tip.style.top = `${top}px`;
+  };
+
+  const show = (btn) => {
+    const title = btn.dataset.title || '';
+    const key = btn.dataset.key || '';
+    const desc = btn.dataset.desc || '';
+    tip.innerHTML = `<div class="tt-title">${title}${key ? `<kbd>${key}</kbd>` : ''}</div><div class="tt-desc">${desc}</div>`;
+    tip.hidden = false;
+    place(btn);
+    requestAnimationFrame(() => tip.classList.add('is-visible'));
+  };
+
+  ui.rail.addEventListener('pointerover', (e) => {
+    const btn = e.target.closest('.tool-btn');
+    if (!btn || btn === current) return;
+    current = btn;
+    clearTimeout(timer);
+    // 延迟 200ms：鼠标只是扫过工具栏时，不会一串提示闪个不停。
+    timer = setTimeout(() => {
+      if (current === btn) show(btn);
+    }, 200);
+  });
+
+  ui.rail.addEventListener('pointerout', (e) => {
+    if (e.relatedTarget && ui.rail.contains(e.relatedTarget)) return;
+    hide();
+  });
+
+  ui.rail.addEventListener('pointerdown', hide);
+  ui.rail.addEventListener('scroll', hide, { passive: true });
+  window.addEventListener('blur', hide);
 }
 
 /* ========================================================================== *
@@ -233,6 +368,8 @@ function menuItemsFor(ui, kind) {
       { icon: 'redo', label: '重做', key: 'Ctrl+Y', disabled: app.redoStack.length === 0, onClick: () => app.redo() },
       sep,
       { icon: 'duplicate', label: '复制实体', key: 'Ctrl+D', disabled: app.selection.size === 0, onClick: () => app.duplicateSelected() },
+      { icon: 'mirror', label: '镜像副本…', disabled: app.selection.size === 0, onClick: () => openMirrorDialog(ui) },
+      { icon: 'array', label: '线性阵列…', disabled: app.selection.size === 0, onClick: () => openArrayDialog(ui) },
       { icon: 'trash', label: '删除实体', key: 'Delete', disabled: app.selection.size === 0, onClick: () => app.deleteSelected() },
       sep,
       { icon: 'select', label: '全选', key: 'Ctrl+A', onClick: () => app.selectAll() },
@@ -253,10 +390,16 @@ function menuItemsFor(ui, kind) {
         onClick: () => app.updateSettings({ projection: app.settings.projection === 'persp' ? 'ortho' : 'persp' }),
       },
       { icon: 'grid', label: app.settings.gridVisible ? '隐藏网格' : '显示网格', onClick: () => app.updateSettings({ gridVisible: !app.settings.gridVisible }) },
+      {
+        icon: 'box',
+        label: app.settings.xray ? '关闭 X 光透视' : '开启 X 光透视',
+        onClick: () => app.updateSettings({ xray: !app.settings.xray }),
+      },
       { icon: 'bed', label: app.settings.shadows ? '关闭阴影' : '打开阴影', onClick: () => app.updateSettings({ shadows: !app.settings.shadows }) },
     ];
   }
   return [
+    { icon: 'help', label: '使用手册', onClick: () => openManual(ui) },
     { icon: 'help', label: '快捷键一览', onClick: () => openShortcuts(ui) },
     { icon: 'info', label: '关于 Cubo', onClick: () => openAbout(ui) },
   ];
@@ -494,6 +637,10 @@ function actionSection(app, single) {
       <button class="mini-btn" data-act="duplicate">${icon('duplicate', 14)} 复制</button>
       <button class="mini-btn" data-act="delete">${icon('trash', 14)} 删除</button>
     </div>
+    <div class="action-row">
+      <button class="mini-btn" data-act="mirror">${icon('mirror', 14)} 镜像</button>
+      <button class="mini-btn" data-act="array">${icon('array', 14)} 阵列</button>
+    </div>
   </div>`;
 }
 
@@ -506,6 +653,7 @@ function settingsSection(app) {
     <div class="toggle-row">显示网格<button ${sw(s.gridVisible)} data-toggle="gridVisible" aria-label="网格"></button></div>
     <div class="toggle-row">网格吸附<button ${sw(s.snap)} data-toggle="snap" aria-label="吸附"></button></div>
     <div class="toggle-row">投影阴影<button ${sw(s.shadows)} data-toggle="shadows" aria-label="阴影"></button></div>
+    <div class="toggle-row">X 光透视<button ${sw(s.xray)} data-toggle="xray" aria-label="X 光透视"></button></div>
     <div class="field-row" style="margin-top:6px">
       <label>网格</label>
       <select class="select-field" data-setting="gridSize">
@@ -543,6 +691,10 @@ function bindInspector(ui) {
       app.deleteSelected();
     } else if (act === 'duplicate') {
       app.duplicateSelected();
+    } else if (act === 'mirror') {
+      openMirrorDialog(ui);
+    } else if (act === 'array') {
+      openArrayDialog(ui);
     } else if (act === 'drop') {
       app.dropToBed();
     } else if (act === 'center') {
@@ -648,10 +800,11 @@ function bindViewportControls(ui) {
   });
 }
 
-/** @brief 草图状态条的「完成 / 取消」。 */
+/** @brief 草图状态条的「完成 / 取消 / 切穿」。 */
 function bindSketchBanner(ui) {
   document.getElementById('sketch-finish').addEventListener('click', () => ui.app.tools.finish());
   document.getElementById('sketch-cancel').addEventListener('click', () => ui.app.tools.cancel());
+  ui.sketchThrough.addEventListener('click', () => ui.app.tools.cutThrough());
 }
 
 /* ========================================================================== *
@@ -830,9 +983,19 @@ function updateSketchBanner(ui) {
   const label = sketch.hostId ? '实体表面' : isGround ? '地面（XY）' : isFront ? '前视平面（XZ）' : '自定义平面';
   ui.sketchPlaneLabel.textContent = `草图 · ${label}`;
   const count = sketch.points?.length || 0;
-  if (ui.app.preview) {
-    // 拉伸预览阶段：显示实时高度，提示点击确认
-    ui.sketchOpLabel.textContent = `高度 ${Number(ui.app.preview.height || 0).toFixed(1)} mm · 点击确认，数字键精确输入`;
+  const preview = ui.app.preview;
+  const inward = preview?.hostDepth?.inward || 0;
+  // 切除时把「当前深度 / 实体厚度」直接写出来，用户一眼就知道还差多少才切穿。
+  ui.sketchThrough.hidden = !(preview && inward > 0 && preview.height < 0);
+  if (preview) {
+    if (inward > 0 && preview.height < 0) {
+      const depth = Math.min(Math.abs(preview.height), inward);
+      ui.sketchOpLabel.textContent = `切除 ${depth.toFixed(1)} / ${inward.toFixed(1)} mm${
+        preview.through ? ' · 已切穿' : ' · 再往下拖，或点“切穿”'
+      }`;
+    } else {
+      ui.sketchOpLabel.textContent = `高度 ${Number(preview.height || 0).toFixed(1)} mm · 点击确认，数字键精确输入`;
+    }
   } else if (ui.app.tool === 'revolve') {
     ui.sketchOpLabel.textContent = '画截面，闭合后自动旋转成体';
   } else if (count === 0) {
@@ -889,9 +1052,57 @@ function openModal(ui, { title, body, footer, onMount }) {
   return { close };
 }
 
+/** @brief 应用内使用手册（给不想翻 README 的人）。 */
+function openManual(ui) {
+  openModal(ui, {
+    title: '使用手册 · 五分钟上手',
+    body: `<div class="manual">
+      <h3>1. 画轮廓</h3>
+      <p>左侧选 <b>矩形 R</b> 或 <b>圆 C</b>，在地面上点两个点。轮廓一闭合，就会自动进入推拉预览。</p>
+
+      <h3>2. 推拉成体</h3>
+      <p>上下移动鼠标设置高度，<b>点击确认</b>；直接敲数字再回车可以精确输入（例如敲 <code>25</code>）。</p>
+      <p>如果把轮廓画在实体表面上：<b>往外拉 = 合并</b>，<b>往里推 = 挖孔</b>。推拉预览是半透明的，就算在实体内部也看得见。</p>
+
+      <h3>3. 把孔挖穿</h3>
+      <p>挖孔时状态条会显示 <b>切除 12.0 / 30.0 mm</b>。拖到接近实体厚度会自动吸附成贯穿孔；也可以按 <code>T</code> 或点状态条上的「切穿」按钮一步到位。</p>
+
+      <h3>4. 布尔与图元</h3>
+      <p>选中两个以上实体（Shift 点选或 Ctrl+A），点左侧的并集 / 差集 / 交集，或右侧属性面板的按钮。差集是「最先选中的实体」减去其余实体。</p>
+      <p>图元按钮里有立方体、圆柱、球、圆锥、圆环、圆管、六棱柱，放下去以后可以在右侧改尺寸和位置。</p>
+
+      <h3>5. 镜像与阵列</h3>
+      <p>选中实体后，右侧「操作」里可以生成镜像副本，或沿 X/Y/Z 做线性阵列（可合并成一个实体）。</p>
+
+      <h3>6. 检查与导出</h3>
+      <p>右侧「打印检查」会显示封闭性、体积、重量、悬垂比例。点「贴床 / 居中 / 智能摆正」摆好位置，再点右上角「导出 STL」。</p>
+      <p>看内部结构时，可以打开右侧的「X 光透视」，所有实体变半透明。</p>
+
+      <h3>常用快捷键</h3>
+      <ul>
+        <li><code>Q</code> 选择 · <code>L</code> 直线 · <code>R</code> 矩形 · <code>C</code> 圆 · <code>G</code> 多边形 · <code>A</code> 圆弧</li>
+        <li><code>P</code> 推拉 · <code>O</code> 旋转体 · <code>1/2/3</code> 移动/旋转/缩放 · <code>M</code> 测量 · <code>F</code> 适配</li>
+        <li><code>Ctrl+Z / Ctrl+Y</code> 撤销 / 重做，<code>Ctrl+S</code> 保存工程，<code>Delete</code> 删除</li>
+        <li>拉伸时按 <code>T</code> 切穿；<code>Esc</code> 取消当前操作；<code>Enter</code> 闭合轮廓 / 确认</li>
+      </ul>
+
+      <h3>卡住了？</h3>
+      <ul>
+        <li>点下去没反应：可能还在上一个草图里，按 <code>Esc</code> 退出再试。</li>
+        <li>看不到模型：按 <code>F</code> 适配窗口。</li>
+        <li>工具按钮上的字太小：鼠标悬停会弹出完整说明。</li>
+        <li>STL 导入失败：文件不是封闭实体，可以换个切片软件重新导出。</li>
+      </ul>
+    </div>`,
+    footer: `<button class="btn primary" data-close>开始建模</button>`,
+    onMount: (root, close) => {
+      root.querySelector('[data-close]').addEventListener('click', close);
+    },
+  });
+}
+
 /** @brief 快捷键说明。 */
-function openShortcuts(ui) {
-  const rows = [
+function openShortcuts(ui) {  const rows = [
     ['选择', 'Q'],
     ['直线 / 矩形 / 圆', 'L / R / C'],
     ['多边形 / 圆弧', 'G / A'],
@@ -905,7 +1116,9 @@ function openShortcuts(ui) {
     ['保存工程 / 打开工程', 'Ctrl+S / Ctrl+O'],
     ['结束当前操作', 'Esc'],
     ['确认拉伸 / 闭合轮廓', 'Enter'],
+    ['切除时一键贯穿', 'T'],
     ['精确输入尺寸', '直接敲数字'],
+    ['镜像 / 线性阵列', '编辑菜单'],
     ['Alt + 点击确认拉伸', '生成独立实体'],
   ];
   openModal(ui, {
@@ -965,6 +1178,85 @@ function openExportDialog(ui) {
         const binary = root.querySelector('#export-format').value === 'binary';
         close();
         app.exportSTL({ selectedOnly, binary });
+      });
+    },
+  });
+}
+
+/** @brief 镜像副本对话框。 */
+function openMirrorDialog(ui) {
+  const app = ui.app;
+  if (app.selection.size === 0) {
+    app.toast('先选中要镜像的实体', 'warn');
+    return;
+  }
+  openModal(ui, {
+    title: '镜像副本',
+    body: `<p>以垂直于所选轴的平面为镜面，生成一份镜像副本（原件保留）。</p>
+      <label class="field-label">镜面轴向</label>
+      <select class="select-field" id="mirror-axis">
+        <option value="x">X 轴（左右镜像）</option>
+        <option value="y">Y 轴（前后镜像）</option>
+        <option value="z">Z 轴（上下镜像）</option>
+      </select>
+      <label class="field-label">镜面位置（mm）</label>
+      <input class="text-field" id="mirror-offset" type="number" value="0" step="1" />
+      <p style="margin-top:10px;color:var(--text-faint);font-size:11.5px">
+        位置 0 表示以世界原点所在的平面为镜面；填 20 就是关于「坐标 = 20」的平面镜像。
+      </p>`,
+    footer: `<button class="btn" data-cancel>取消</button><button class="btn primary" data-ok>生成镜像</button>`,
+    onMount: (root, close) => {
+      root.querySelector('[data-cancel]').addEventListener('click', close);
+      root.querySelector('[data-ok]').addEventListener('click', () => {
+        const axis = root.querySelector('#mirror-axis').value;
+        const offset = Number(root.querySelector('#mirror-offset').value) || 0;
+        close();
+        app.mirrorSelected({ axis, offset });
+      });
+    },
+  });
+}
+
+/** @brief 线性阵列对话框。 */
+function openArrayDialog(ui) {
+  const app = ui.app;
+  if (app.selection.size === 0) {
+    app.toast('先选中要阵列的实体', 'warn');
+    return;
+  }
+  openModal(ui, {
+    title: '线性阵列',
+    body: `<p>把选中的实体沿一个方向等距复制。总数量包含原件。</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label class="field-label">方向</label>
+          <select class="select-field" id="array-axis">
+            <option value="x">X 轴</option>
+            <option value="y">Y 轴</option>
+            <option value="z">Z 轴</option>
+          </select>
+        </div>
+        <div>
+          <label class="field-label">总数量</label>
+          <input class="text-field" id="array-count" type="number" value="3" min="2" max="50" step="1" />
+        </div>
+      </div>
+      <label class="field-label">间距（mm）</label>
+      <input class="text-field" id="array-spacing" type="number" value="50" step="1" />
+      <label class="check-line" style="margin-top:12px;cursor:pointer">
+        <input type="checkbox" id="array-merge" />
+        <span>合并成一个实体（布尔并集）</span>
+      </label>`,
+    footer: `<button class="btn" data-cancel>取消</button><button class="btn primary" data-ok>生成阵列</button>`,
+    onMount: (root, close) => {
+      root.querySelector('[data-cancel]').addEventListener('click', close);
+      root.querySelector('[data-ok]').addEventListener('click', () => {
+        const axis = root.querySelector('#array-axis').value;
+        const count = Number(root.querySelector('#array-count').value) || 3;
+        const spacing = Number(root.querySelector('#array-spacing').value) || 50;
+        const merge = root.querySelector('#array-merge').checked;
+        close();
+        app.linearArraySelected({ axis, count, spacing, merge });
       });
     },
   });

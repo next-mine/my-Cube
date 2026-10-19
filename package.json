@@ -12,7 +12,7 @@
     "preview": "vite preview --host 127.0.0.1 --port 5274",
     "serve": "node server.mjs",
     "test": "node tests/kernel.test.mjs",
-    "test:e2e": "node tests/e2e-smoke.mjs && node tests/e2e-flow.mjs && node tests/e2e-advanced.mjs && node tests/e2e-extra.mjs"
+    "test:e2e": "node tests/e2e-smoke.mjs && node tests/e2e-flow.mjs && node tests/e2e-advanced.mjs && node tests/e2e-extra.mjs && node tests/e2e-misc.mjs && node tests/e2e-features2.mjs"
   },
   "dependencies": {
     "manifold-3d": "3.5.4",

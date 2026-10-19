@@ -7,6 +7,9 @@
  */
 
 import * as THREE from 'three';
+import { Line2 } from 'three/addons/lines/Line2.js';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
 
 /**
  * @brief 用原点、两条切向轴和法线描述一个草图平面。
@@ -317,8 +320,9 @@ export function buildPolyline(pts) {
 /**
  * @brief 草图预览渲染器：负责画平面底、点、线、橡皮筋。
  *
- * @note 每次更新都是整体重建几何。草图的点数通常只有几十个，重建成本远低于
- *       维护增量更新的复杂度；真的画了几千个点的草图时再优化也不迟。
+ * @note 线用 three 的 Line2（屏幕空间粗线）而不是普通 LineBasicMaterial：
+ *       WebGL 在绝大多数平台上会忽略 linewidth，普通线永远是 1px，
+ *       在深色视口里细得像头发丝。Line2 用三角带模拟线段，才能真正画粗。
  */
 export class SketchRenderer {
   /**
@@ -333,19 +337,88 @@ export class SketchRenderer {
     this.group.add(this.planeGroup, this.lineGroup);
     this.plane = null;
 
-    this.lineMat = new THREE.LineBasicMaterial({ color: 0x6fd7ff, transparent: true, opacity: 0.98 });
-    this.rubberMat = new THREE.LineDashedMaterial({
-      color: 0x6fd7ff,
+    // 线的粗细单位是屏幕像素，靠 resolution 把像素换算到 NDC，窗口变了要同步。
+    this.lineMat = new LineMaterial({
+      color: 0x7fe3ff,
+      linewidth: 3.2,
       transparent: true,
-      opacity: 0.75,
-      dashSize: 3,
-      gapSize: 3,
+      opacity: 0.98,
+      depthTest: false,
     });
-    this.previewMat = new THREE.LineBasicMaterial({
-      color: 0xffc46b,
+    this.rubberMat = new LineMaterial({
+      color: 0x7fe3ff,
+      linewidth: 2.6,
+      transparent: true,
+      opacity: 0.85,
+      dashed: true,
+      dashSize: 4,
+      gapSize: 2.5,
+      depthTest: false,
+    });
+    this.previewMat = new LineMaterial({
+      color: 0xffbf5e,
+      linewidth: 2.8,
       transparent: true,
       opacity: 0.95,
+      depthTest: false,
     });
+    this.snapMat = new LineMaterial({
+      color: 0xffd166,
+      linewidth: 2.4,
+      transparent: true,
+      opacity: 0.98,
+      depthTest: false,
+    });
+    this.materials = [this.lineMat, this.rubberMat, this.previewMat, this.snapMat];
+    this.pointMat = new THREE.PointsMaterial({
+      color: 0xe9f9ff,
+      size: 7,
+      sizeAttenuation: false,
+      depthTest: false,
+      transparent: true,
+    });
+
+    this._onResize = () => this.updateResolution();
+    window.addEventListener('resize', this._onResize);
+    this.updateResolution();
+  }
+
+  /** @brief 把画布尺寸同步给所有粗线材质。 */
+  updateResolution() {
+    const size = this.viewport.renderer.getSize(new THREE.Vector2());
+    for (const m of this.materials) m.resolution.set(size.x, size.y);
+  }
+
+  /**
+   * @brief 创建一个屏幕空间粗线对象。
+   * @param {THREE.Vector3[]} points 至少两个点。
+   * @param {LineMaterial} material 材质。
+   * @retval {Line2}
+   */
+  _fat(points, material) {
+    const flat = [];
+    for (const p of points) flat.push(p.x, p.y, p.z);
+    const geo = new LineGeometry();
+    geo.setPositions(flat);
+    const line = new Line2(geo, material);
+    line.computeLineDistances();
+    line.frustumCulled = false;
+    line.renderOrder = 4;
+    return line;
+  }
+
+  /**
+   * @brief 清空一个分组，并释放它自己的几何体。
+   * @param {THREE.Group} group 分组。
+   * @note 材质是共享的，不能在这里 dispose；几何体每次重建，必须释放。
+   */
+  _clearGroup(group) {
+    for (const child of [...group.children]) {
+      group.remove(child);
+      child.geometry?.dispose();
+      // 平面底板/描边的材质是临时创建的，跟着几何一起释放。
+      if (child.userData.ownMaterial) child.material?.dispose();
+    }
   }
 
   /**
@@ -355,7 +428,7 @@ export class SketchRenderer {
    */
   setPlane(plane) {
     this.plane = plane;
-    this.planeGroup.clear();
+    this._clearGroup(this.planeGroup);
     if (!plane) return;
 
     const size = 260;
@@ -363,11 +436,12 @@ export class SketchRenderer {
     const mat = new THREE.MeshBasicMaterial({
       color: 0x5fbfff,
       transparent: true,
-      opacity: 0.045,
+      opacity: 0.05,
       side: THREE.DoubleSide,
       depthWrite: false,
     });
     const mesh = new THREE.Mesh(geo, mat);
+    mesh.userData.ownMaterial = true;
     const basis = new THREE.Matrix4().makeBasis(
       new THREE.Vector3(...plane.xAxis),
       new THREE.Vector3(...plane.yAxis),
@@ -386,16 +460,20 @@ export class SketchRenderer {
       [-half, half],
       [-half, -half],
     ].map(([u, v]) => planeToWorld(plane, u, v, 0.02));
-    const borderGeo = new THREE.BufferGeometry().setFromPoints(corners);
-    const borderMat = new THREE.LineDashedMaterial({
+    const borderMat = new LineMaterial({
       color: 0x5fbfff,
+      linewidth: 1.6,
       transparent: true,
-      opacity: 0.28,
+      opacity: 0.5,
+      dashed: true,
       dashSize: 8,
       gapSize: 6,
+      depthTest: false,
     });
-    const border = new THREE.Line(borderGeo, borderMat);
-    border.computeLineDistances();
+    borderMat.resolution.copy(this.lineMat.resolution);
+    const border = this._fat(corners, borderMat);
+    border.userData.ownMaterial = true;
+    border.renderOrder = 2;
     this.planeGroup.add(border);
   }
 
@@ -411,38 +489,43 @@ export class SketchRenderer {
    * @retval {void}
    */
   update({ points = [], cursor = null, preview = null, closed = false, snapped = false }) {
-    this.lineGroup.clear();
+    this._clearGroup(this.lineGroup);
     if (!this.plane) return;
 
+    // 画布尺寸可能在拖动窗口时变了，顺手同步一下。
+    this.updateResolution();
     const plane = this.plane;
 
     // 已放下的折线
     if (points.length > 1) {
       const pts = closed ? [...points, points[0]] : points;
-      const geo = new THREE.BufferGeometry().setFromPoints(
+      const line = this._fat(
         pts.map(([u, v]) => planeToWorld(plane, u, v, 0.04)),
+        this.lineMat,
       );
-      this.lineGroup.add(new THREE.Line(geo, this.lineMat));
+      this.lineGroup.add(line);
     }
 
     // 橡皮筋：最后一点连到光标
     if (cursor && points.length > 0 && !closed) {
       const last = points[points.length - 1];
-      const geo = new THREE.BufferGeometry().setFromPoints([
-        planeToWorld(plane, last[0], last[1], 0.04),
-        planeToWorld(plane, cursor[0], cursor[1], 0.04),
-      ]);
-      const line = new THREE.Line(geo, this.rubberMat);
-      line.computeLineDistances();
+      const line = this._fat(
+        [
+          planeToWorld(plane, last[0], last[1], 0.04),
+          planeToWorld(plane, cursor[0], cursor[1], 0.04),
+        ],
+        this.rubberMat,
+      );
       this.lineGroup.add(line);
     }
 
     // 形状预览（矩形第一个角到第二个角、圆的整圈……）
     if (preview && preview.length > 1) {
-      const geo = new THREE.BufferGeometry().setFromPoints(
+      const line = this._fat(
         [...preview, preview[0]].map(([u, v]) => planeToWorld(plane, u, v, 0.05)),
+        this.previewMat,
       );
-      this.lineGroup.add(new THREE.Line(geo, this.previewMat));
+      this.lineGroup.add(line);
     }
 
     // 顶点点列
@@ -450,21 +533,14 @@ export class SketchRenderer {
       const geo = new THREE.BufferGeometry().setFromPoints(
         points.map(([u, v]) => planeToWorld(plane, u, v, 0.06)),
       );
-      const mat = new THREE.PointsMaterial({
-        color: 0xe8f7ff,
-        size: 5.5,
-        sizeAttenuation: false,
-        depthTest: false,
-        transparent: true,
-      });
-      const dots = new THREE.Points(geo, mat);
-      dots.renderOrder = 5;
+      const dots = new THREE.Points(geo, this.pointMat);
+      dots.renderOrder = 6;
       this.lineGroup.add(dots);
     }
 
     // 吸附高亮：光标处画个小方框
     if (cursor && snapped) {
-      const r = 3.2;
+      const r = 3.4;
       const corners = [
         [cursor[0] - r, cursor[1] - r],
         [cursor[0] + r, cursor[1] - r],
@@ -472,15 +548,8 @@ export class SketchRenderer {
         [cursor[0] - r, cursor[1] + r],
         [cursor[0] - r, cursor[1] - r],
       ].map(([u, v]) => planeToWorld(plane, u, v, 0.08));
-      const geo = new THREE.BufferGeometry().setFromPoints(corners);
-      const mat = new THREE.LineBasicMaterial({
-        color: 0xffc46b,
-        transparent: true,
-        opacity: 0.95,
-        depthTest: false,
-      });
-      const box = new THREE.Line(geo, mat);
-      box.renderOrder = 6;
+      const box = this._fat(corners, this.snapMat);
+      box.renderOrder = 7;
       this.lineGroup.add(box);
     }
   }
@@ -488,7 +557,16 @@ export class SketchRenderer {
   /** @brief 清空所有草图预览。 */
   clear() {
     this.plane = null;
-    this.planeGroup.clear();
-    this.lineGroup.clear();
+    this._clearGroup(this.planeGroup);
+    this._clearGroup(this.lineGroup);
+  }
+
+  /** @brief 退出时移除窗口监听。 */
+  dispose() {
+    window.removeEventListener('resize', this._onResize);
+    this.clear();
+    for (const m of this.materials) m.dispose();
+    this.pointMat.dispose();
   }
 }
+

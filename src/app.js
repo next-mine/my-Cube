@@ -76,6 +76,8 @@ export class App {
       material: 'PLA',
       polygonSides: 6,
       segmentQuality: 64,
+      /** @type {boolean} X 光透视：实体半透明，方便检查内部孔洞 */
+      xray: false,
     };
 
     this.docName = '未命名模型';
@@ -489,6 +491,147 @@ export class App {
   }
 
   /* ================================================================== *
+   *  镜像与阵列
+   * ================================================================== */
+
+  /**
+   * @brief 以垂直于某根轴的平面为镜面，生成选中实体的镜像副本。
+   *
+   * @param {object} [opts]
+   * @param {'x'|'y'|'z'} [opts.axis='x'] 镜面法线所在的轴。
+   * @param {number} [opts.offset=0] 镜面在该轴上的位置（mm）。
+   * @retval {Solid[]} 新生成的镜像实体。
+   *
+   * @note 反射会把三角形的绕序翻过来，直接回灌 manifold 会得到“内外翻转”的实体。
+   *       所以这里把每个三角形的后两个顶点对调，重新把法线翻回朝外。
+   */
+  mirrorSelected({ axis = 'x', offset = 0 } = {}) {
+    const picked = this.getSelectedSolids();
+    if (picked.length === 0) {
+      this.toast('先选中要镜像的实体', 'warn');
+      return [];
+    }
+    const axisIndex = { x: 0, y: 1, z: 2 }[axis];
+    if (axisIndex === undefined) return [];
+
+    this.pushUndo('镜像副本');
+    const created = [];
+    for (const src of picked) {
+      try {
+        const world = src.getWorldManifold();
+        if (!world) continue;
+        const { positions, indices } = manifoldMeshData(world);
+        const mirrored = new Float32Array(positions);
+        // 关于坐标 = offset 的平面做反射：p' = 2·offset − p
+        for (let i = axisIndex; i < mirrored.length; i += 3) {
+          mirrored[i] = offset * 2 - mirrored[i];
+        }
+        const flipped = new Uint32Array(indices);
+        for (let i = 0; i < flipped.length; i += 3) {
+          const tmp = flipped[i + 1];
+          flipped[i + 1] = flipped[i + 2];
+          flipped[i + 2] = tmp;
+        }
+        const manifold = manifoldFromMeshData(mirrored, flipped);
+        const copy = new Solid({
+          name: `${src.name} 镜像`,
+          manifold,
+          color: src.color,
+          kind: '镜像',
+        });
+        this._attachSolid(copy);
+        created.push(copy);
+      } catch (err) {
+        console.error('[cubo] 镜像失败', err);
+        this.toast('这个实体镜像失败了，已跳过', 'warn');
+      }
+    }
+    this.setSelection(created.map((s) => s.id));
+    this._markDirty();
+    this._setStatus(`已生成 ${created.length} 个镜像副本`);
+    this.notify();
+    return created;
+  }
+
+  /**
+   * @brief 线性阵列：把选中的实体沿某根轴复制若干份。
+   *
+   * @param {object} [opts]
+   * @param {'x'|'y'|'z'} [opts.axis='x'] 阵列方向。
+   * @param {number} [opts.count=3] 总数量（包含原件）。
+   * @param {number} [opts.spacing=50] 间距（mm）。
+   * @param {boolean} [opts.merge=false] 是否把所有副本并成一个实体。
+   * @retval {void}
+   *
+   * @note 副本直接复制「局部网格 + 变换」，不改几何，所以很快；
+   *       勾选合并时才做世界坐标布尔，适合一次打出连在一起的排梳状零件。
+   */
+  linearArraySelected({ axis = 'x', count = 3, spacing = 50, merge = false } = {}) {
+    const picked = this.getSelectedSolids();
+    if (picked.length === 0) {
+      this.toast('先选中要阵列的实体', 'warn');
+      return;
+    }
+    const axisIndex = { x: 0, y: 1, z: 2 }[axis];
+    if (axisIndex === undefined) return;
+    const total = Math.max(2, Math.min(50, Math.round(count)));
+    const step = Number(spacing) || 0;
+    if (Math.abs(step) < 0.01) {
+      this.toast('阵列间距不能是 0 哦', 'warn');
+      return;
+    }
+
+    this.pushUndo('线性阵列');
+    const created = [];
+    for (const src of picked) {
+      for (let i = 1; i < total; i += 1) {
+        const snap = src.toSnapshot();
+        const copy = Solid.fromSnapshot({ ...snap, id: undefined, name: `${src.name} ${i + 1}` });
+        const position = [...src.transform.position];
+        position[axisIndex] += step * i;
+        copy.setTransform({ position });
+        this._attachSolid(copy);
+        created.push(copy);
+      }
+    }
+
+    if (merge && created.length > 0) {
+      try {
+        const all = [...picked, ...created];
+        let result = all[0].getWorldManifold();
+        for (let i = 1; i < all.length; i += 1) {
+          result = booleanOp(result, all[i].getWorldManifold(), 'union');
+        }
+        const first = picked[0];
+        for (const solid of all) {
+          this.viewport.removeSolid(solid);
+          this.byId.delete(solid.id);
+          solid.dispose();
+        }
+        this.solids = this.solids.filter((s) => !all.includes(s));
+        const merged = new Solid({
+          name: '阵列结果',
+          manifold: result,
+          color: first.color,
+          kind: '布尔结果',
+        });
+        this._attachSolid(merged);
+        this.setSelection([merged.id]);
+      } catch (err) {
+        console.error('[cubo] 阵列合并失败', err);
+        this.toast('合并失败了，副本已作为独立实体保留', 'warn');
+        this.setSelection(created.map((s) => s.id));
+      }
+    } else {
+      this.setSelection(created.map((s) => s.id));
+    }
+
+    this._markDirty();
+    this._setStatus(`线性阵列：共 ${total} 个（间距 ${step} mm）`);
+    this.notify();
+  }
+
+  /* ================================================================== *
    *  草图与拉伸
    * ================================================================== */
 
@@ -549,15 +692,22 @@ export class App {
       this.toast('轮廓没有围出面积，再画一次试试', 'warn');
       return null;
     }
+    const host = hostId ? this.byId.get(hostId) : null;
     let toolManifold;
     try {
-      toolManifold = extrudeContours({ contours, plane, height });
+      // 贴在实体表面上时两端各多伸 0.2 mm：切削必然穿透表面，
+      // 合并也不会和表面共面。独立拉伸（新实体）不加，尺寸才准确。
+      toolManifold = extrudeContours({
+        contours,
+        plane,
+        height,
+        overshoot: host && !asNew ? 0.2 : 0,
+      });
     } catch (err) {
       this.toast(`拉伸失败：${err.message}`, 'error');
       return null;
     }
 
-    const host = hostId ? this.byId.get(hostId) : null;
     if (host && !asNew) {
       const op = height < 0 ? 'subtract' : 'union';
       this.pushUndo(height < 0 ? '切除实体' : '合并实体');
@@ -1058,6 +1208,7 @@ export class App {
     const s = this.settings;
     this.viewport.setGridVisible(s.gridVisible);
     this.viewport.setShadowVisible(s.shadows);
+    this.viewport.setXray(s.xray);
     if (this.viewport.activeProjection !== s.projection) {
       this.viewport.setProjection(s.projection);
     }
